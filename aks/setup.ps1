@@ -9,6 +9,9 @@ $fwName = "firewall"
 $fwPublicIp = "fwpip"
 $fwIpConfig = "fwconfig"
 
+# get subscription id
+$subscription = az account show --query id -o tsv
+
 # create resource group
 az group create -n $group -l $location
 
@@ -38,3 +41,11 @@ az network firewall update -g $group -n $fwName
 
 # get credentials for aks cluster
 az aks get-credentials -g $group -n $clusterName --overwrite-existing
+
+"AZURE_SUBSCRIPTION_ID = $subscription"
+"AZURE_RESOURCE_GROUP = $group"
+"AZURE_FIREWALL_NAME = $fwName"
+
+$Env:AZURE_SUBSCRIPTION_ID = $subscription
+$Env:AZURE_RESOURCE_GROUP = $group
+$Env:AZURE_FIREWALL_NAME = $fwName

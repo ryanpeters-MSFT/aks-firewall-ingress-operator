@@ -1,0 +1,27 @@
+{
+  "profiles": {
+    "FirewallSync": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "AZURE_SUBSCRIPTION_ID": "24ef1668-95f3-4c77-adf2-2d023271a3e1",
+        "AZURE_RESOURCE_GROUP": "rg-aks-firewall-dnat",
+        "AZURE_FIREWALL_NAME": "firewall"
+      }
+    },
+    "FirewallSync (Production)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Production",
+        "AZURE_SUBSCRIPTION_ID": "",
+        "AZURE_RESOURCE_GROUP": "",
+        "AZURE_FIREWALL_NAME": ""
+      }
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}

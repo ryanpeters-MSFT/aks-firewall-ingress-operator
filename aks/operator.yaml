@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: firewall-sync-operator
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: firewall-sync-operator
+rules:
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: firewall-sync-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: firewall-sync-operator
+subjects:
+- kind: ServiceAccount
+  name: firewall-sync-operator
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: firewall-sync-operator
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: firewall-sync-operator
+  template:
+    metadata:
+      labels:
+        app: firewall-sync-operator
+        azure.workload.identity/use: "true"  # For workload identity
+    spec:
+      serviceAccountName: firewall-sync-operator
+      containers:
+      - name: operator
+        image: your-registry/k8s-firewall-sync:latest
+        env:
+        - name: AZURE_SUBSCRIPTION_ID
+          value: "your-subscription-id"
+        - name: AZURE_RESOURCE_GROUP
+          value: "your-resource-group"
+        - name: AZURE_FIREWALL_NAME
+          value: "your-firewall-name"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
