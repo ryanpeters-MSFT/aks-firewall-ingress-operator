@@ -85,11 +85,14 @@ az aks get-credentials -g $group -n $clusterName --overwrite-existing
 # get the client id of the user assigned managed identity
 $clientId = az identity show -n $fwIdentity -g $group --query clientId -o tsv
 
+# get the public ip address of the firewall
+$firewallPublicIp = az network public-ip show -g $group -n $fwPublicIp --query ipAddress -o tsv
 
 "AZURE_SUBSCRIPTION_ID = $subscription"
 "AZURE_RESOURCE_GROUP = $group"
 "AZURE_FIREWALL_NAME = $fwName"
 "Operator Client ID = $clientId"
+"Firewall Public IP = $firewallPublicIp"
 
 $Env:AZURE_SUBSCRIPTION_ID = $subscription
 $Env:AZURE_RESOURCE_GROUP = $group
