@@ -1,5 +1,5 @@
 # variables
-$group = "rg-aks-firewall-dnat2"
+$group = "rg-aks-firewall-dnat"
 $location = "eastus2"
 $vnetName = "vnet"
 $aksSubnet = "aks"

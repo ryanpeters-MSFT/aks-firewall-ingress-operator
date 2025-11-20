@@ -57,7 +57,7 @@ spec:
         - name: AZURE_SUBSCRIPTION_ID
           value: "24ef1668-95f3-4c77-adf2-2d023271a3e1"
         - name: AZURE_RESOURCE_GROUP
-          value: "rg-aks-firewall-dnat2"
+          value: "rg-aks-firewall-dnat"
         - name: AZURE_FIREWALL_NAME
           value: "firewall"
         resources: {}

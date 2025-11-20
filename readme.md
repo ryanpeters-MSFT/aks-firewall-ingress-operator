@@ -43,7 +43,7 @@ The `aks/setup.ps1` script automates the creation of all Azure resources includi
 Edit the variables at the top of `aks/setup.ps1` to match your desired configuration:
 
 ```powershell
-$group = "rg-aks-firewall-dnat2"           # Resource group name
+$group = "rg-aks-firewall-dnat"           # Resource group name
 $location = "eastus2"                       # Azure region
 $registry = "binarydad"                     # Your ACR name (must exist)
 $clusterName = "firewallcluster"            # AKS cluster name
