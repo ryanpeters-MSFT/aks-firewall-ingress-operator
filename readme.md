@@ -29,62 +29,78 @@ The operator uses:
 
 ## Prerequisites
 
-- Azure Kubernetes Service (AKS) cluster with workload identity enabled
-- Azure Firewall deployed and configured
-- Azure Managed Identity with permissions to modify the Azure Firewall
-- `kubectl` configured to access your cluster
-- Docker registry for container images (or use the provided ACR)
+- Azure CLI installed and authenticated
+- Docker installed (for building the operator image)
+- Azure Container Registry (ACR) or another container registry
+- `kubectl` installed
 
 ## Setup
 
-### 1. Configure Azure Workload Identity
+### 1. Run the Setup Script
 
-Create a managed identity and assign it the necessary permissions:
+The `aks/setup.ps1` script automates the creation of all Azure resources including AKS cluster, Azure Firewall, managed identity, and federated credentials.
+
+Edit the variables at the top of `aks/setup.ps1` to match your desired configuration:
 
 ```powershell
-# Create managed identity
-az identity create \
-  --name firewall-operator-identity \
-  --resource-group <your-resource-group>
-
-# Get the client ID
-CLIENT_ID=$(az identity show \
-  --name firewall-operator-identity \
-  --resource-group <your-resource-group> \
-  --query clientId -o tsv)
-
-# Assign Network Contributor role to the firewall
-az role assignment create \
-  --assignee $CLIENT_ID \
-  --role "Network Contributor" \
-  --scope /subscriptions/<subscription-id>/resourceGroups/<firewall-resource-group>/providers/Microsoft.Network/azureFirewalls/<firewall-name>
-
-# Establish federated identity credential
-az identity federated-credential create \
-  --name firewall-operator-federated \
-  --identity-name firewall-operator-identity \
-  --resource-group <your-resource-group> \
-  --issuer $(az aks show -n <aks-cluster-name> -g <aks-resource-group> --query "oidcIssuerProfile.issuerUrl" -o tsv) \
-  --subject system:serviceaccount:firewall-sync:firewall-operator
+$group = "rg-aks-firewall-dnat2"           # Resource group name
+$location = "eastus2"                       # Azure region
+$registry = "binarydad"                     # Your ACR name (must exist)
+$clusterName = "firewallcluster"            # AKS cluster name
+$fwName = "firewall"                        # Azure Firewall name
+$fwIdentity = "fwoperator"                  # Managed identity name
 ```
 
-### 2. Deploy the Operator
+Run the setup script:
 
-Update the `aks/operator.yaml` file with your values:
+```powershell
+cd aks
+./setup.ps1
+```
+
+The script will output the required values at the end:
+- `AZURE_SUBSCRIPTION_ID`
+- `AZURE_RESOURCE_GROUP`
+- `AZURE_FIREWALL_NAME`
+- `Operator Client ID`
+
+### 2. Build and Push the Operator Image
+
+Edit `operator/docker.ps1` to use your container registry:
+
+```powershell
+az acr login -n <your-registry-name>
+docker build -f .\Dockerfile . -t <your-registry>.azurecr.io/firewallsync:latest
+docker push <your-registry>.azurecr.io/firewallsync:latest
+```
+
+Run the docker build script:
+
+```powershell
+cd operator
+./docker.ps1
+```
+
+### 3. Deploy the Operator
+
+Update `aks/operator.yaml` with the values from step 1:
 
 ```yaml
-# Update the service account annotation
+# Update the service account annotation with the Client ID from step 1
 annotations:
-  azure.workload.identity/client-id: "<your-managed-identity-client-id>"
+  azure.workload.identity/client-id: "<client-id-from-setup-output>"
 
 # Update the environment variables
 env:
 - name: AZURE_SUBSCRIPTION_ID
-  value: "<your-subscription-id>"
+  value: "<subscription-id-from-setup-output>"
 - name: AZURE_RESOURCE_GROUP
-  value: "<firewall-resource-group>"
+  value: "<resource-group-from-setup-output>"
 - name: AZURE_FIREWALL_NAME
-  value: "<firewall-name>"
+  value: "<firewall-name-from-setup-output>"
+
+# Update the container image
+image: <your-registry>.azurecr.io/firewallsync:latest
 ```
 
 Deploy the operator:
@@ -93,12 +109,59 @@ Deploy the operator:
 kubectl apply -f aks/operator.yaml
 ```
 
+This creates:
+- Namespace: `firewall-sync`
+- ServiceAccount: `firewall-operator` (with workload identity annotation)
+- ClusterRole: `firewall-operator` (with permissions to watch services)
+- ClusterRoleBinding: Binds the service account to the cluster role
+- Deployment: `firewall-operator` (the operator pod)
+
 Verify the operator is running:
 
 ```powershell
 kubectl get pods -n firewall-sync
-kubectl logs -n firewall-sync deployment/firewall-operator
+kubectl logs -n firewall-sync deployment/firewall-operator -f
 ```
+
+### 4. Deploy a Sample Workload
+
+First, get your Azure Firewall's public IP address:
+
+```powershell
+az network public-ip show `
+  --resource-group <your-resource-group> `
+  --name fwpip `
+  --query ipAddress `
+  --output tsv
+```
+
+Update `aks/workload.yaml` with your firewall's public IP:
+
+```yaml
+annotations:
+  service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  azure.firewall/public-ip: "<firewall-public-ip-from-above-command>"
+```
+
+Deploy the sample nginx workload:
+
+```powershell
+kubectl apply -f aks/workload.yaml
+```
+
+Wait for the LoadBalancer service to receive an internal IP:
+
+```powershell
+kubectl get svc nginx -w
+```
+
+Once the service has an `EXTERNAL-IP`, the operator will automatically create DNAT rules. Test access:
+
+```powershell
+curl http://<firewall-public-ip>
+```
+
+You should see the nginx welcome page!
 
 ## Usage
 
@@ -127,8 +190,18 @@ spec:
 
 **Important**: 
 - The service must be of type `LoadBalancer`
-- It's recommended to use an internal LoadBalancer (`service.beta.kubernetes.io/azure-load-balancer-internal: "true"`)
-- The `azure.firewall/public-ip` value should be one of your Azure Firewall's public IP addresses
+- Use an internal LoadBalancer with the annotation `service.beta.kubernetes.io/azure-load-balancer-internal: "true"`
+- The `azure.firewall/public-ip` value must be your Azure Firewall's public IP address
+
+To get your Azure Firewall's public IP:
+
+```powershell
+az network public-ip show `
+  --resource-group <your-resource-group> `
+  --name fwpip `
+  --query ipAddress `
+  --output tsv
+```
 
 ### Example: Nginx Service
 
@@ -178,7 +251,7 @@ The service account is bound to this ClusterRole, allowing it to:
 
 ## Configuration
 
-The operator is configured via environment variables:
+The operator is configured via environment variables set in the `operator.yaml` deployment:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -186,25 +259,10 @@ The operator is configured via environment variables:
 | `AZURE_RESOURCE_GROUP` | Resource group containing the firewall | `rg-aks-firewall-dnat` |
 | `AZURE_FIREWALL_NAME` | Name of the Azure Firewall | `firewall` |
 
-## Building and Deploying
+These values are output by the `setup.ps1` script.
 
-### Build the Docker Image
+## Monitoring
 
-```powershell
-cd operator
-docker build -t <your-registry>/firewallsync:latest .
-docker push <your-registry>/firewallsync:latest
-```
-
-### Update Deployment Image
-
-Update the image reference in `aks/operator.yaml`:
-
-```yaml
-containers:
-- name: firewallsync
-  image: <your-registry>/firewallsync:latest
-```
 
 ## Monitoring
 
@@ -217,7 +275,7 @@ kubectl logs -n firewall-sync deployment/firewall-operator -f
 Check for errors:
 
 ```powershell
-kubectl logs -n firewall-sync deployment/firewall-operator | grep ERROR
+kubectl logs -n firewall-sync deployment/firewall-operator | Select-String ERROR
 ```
 
 ## Troubleshooting
@@ -226,35 +284,35 @@ kubectl logs -n firewall-sync deployment/firewall-operator | grep ERROR
 
 1. **Check operator logs** for authentication or permission errors
 2. **Verify the service has a LoadBalancer IP**:
-   ```bash
+   ```powershell
    kubectl get svc <service-name> -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
    ```
 3. **Verify the annotation is present**:
-   ```bash
-   kubectl get svc <service-name> -o yaml | grep azure.firewall
+   ```powershell
+   kubectl get svc <service-name> -o yaml | Select-String azure.firewall
    ```
-4. **Check Azure Firewall permissions** - ensure the managed identity has Network Contributor role
+4. **Check Azure Firewall permissions** - ensure the managed identity has Contributor role (assigned by setup.ps1)
 
 ### Workload Identity issues
 
 1. **Verify federated credential is configured**:
-   ```bash
-   az identity federated-credential list \
-     --identity-name firewall-operator-identity \
+   ```powershell
+   az identity federated-credential list `
+     --identity-name <identity-name> `
      --resource-group <your-resource-group>
    ```
 2. **Check pod has the required label**:
-   ```bash
-   kubectl get pod -n firewall-sync -l app=firewall-operator -o yaml | grep azure.workload.identity
+   ```powershell
+   kubectl get pod -n firewall-sync -l app=firewall-operator -o yaml | Select-String azure.workload.identity
    ```
 
 ### Service not accessible from internet
 
 1. **Verify DNAT rule exists in Azure Firewall**:
-   ```bash
-   az network firewall nat-rule list \
-     --firewall-name <firewall-name> \
-     --resource-group <resource-group> \
+   ```powershell
+   az network firewall nat-rule list `
+     --firewall-name <firewall-name> `
+     --resource-group <resource-group> `
      --collection-name K8sServiceDNAT
    ```
 2. **Check Network Security Group (NSG) rules** allow traffic to the firewall public IP
@@ -264,6 +322,14 @@ kubectl logs -n firewall-sync deployment/firewall-operator | grep ERROR
 
 - The operator uses Azure Workload Identity for secure authentication (no secrets required)
 - The operator only needs read access to Kubernetes services
-- The managed identity should have minimal permissions (Network Contributor on the firewall only)
+- The managed identity has Contributor permissions on the resource group (configured by setup.ps1)
 - Consider using namespace-scoped operators for multi-tenant scenarios
 - DNAT rules allow traffic from any source (`*`) by default - modify the code for IP restrictions
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
+
+## License
+
+This project is provided as-is for demonstration purposes.
