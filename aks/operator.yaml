@@ -1,13 +1,20 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: firewall-sync
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: firewall-sync-operator
-  namespace: kube-system
+  annotations:
+    azure.workload.identity/client-id: "b8ebfd99-7aba-41cc-9bc7-a836bcb4161f" # Replace with your managed identity client ID
+  name: firewall-operator
+  namespace: firewall-sync
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: firewall-sync-operator
+  name: firewall-operator
 rules:
 - apiGroups: [""]
   resources: ["services"]
@@ -16,47 +23,41 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: firewall-sync-operator
+  name: firewall-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: firewall-sync-operator
+  name: firewall-operator
 subjects:
 - kind: ServiceAccount
-  name: firewall-sync-operator
-  namespace: kube-system
+  name: firewall-operator
+  namespace: firewall-sync
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: firewall-sync-operator
-  namespace: kube-system
+  name: firewall-operator
+  namespace: firewall-sync
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: firewall-sync-operator
+      app: firewall-operator
   template:
     metadata:
       labels:
-        app: firewall-sync-operator
+        app: firewall-operator
         azure.workload.identity/use: "true"  # For workload identity
     spec:
-      serviceAccountName: firewall-sync-operator
+      serviceAccountName: firewall-operator
       containers:
-      - name: operator
-        image: your-registry/k8s-firewall-sync:latest
+      - name: firewallsync
+        image: binarydad.azurecr.io/firewallsync:latest
         env:
         - name: AZURE_SUBSCRIPTION_ID
-          value: "your-subscription-id"
+          value: "24ef1668-95f3-4c77-adf2-2d023271a3e1"
         - name: AZURE_RESOURCE_GROUP
-          value: "your-resource-group"
+          value: "rg-aks-firewall-dnat2"
         - name: AZURE_FIREWALL_NAME
-          value: "your-firewall-name"
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "200m"
+          value: "firewall"
+        resources: {}
