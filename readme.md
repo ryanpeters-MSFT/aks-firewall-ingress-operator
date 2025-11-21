@@ -43,7 +43,7 @@ The `aks/setup.ps1` script automates the creation of all Azure resources includi
 Edit the variables at the top of `aks/setup.ps1` to match your desired configuration:
 
 ```powershell
-$group = "rg-aks-firewall-dnat"           # Resource group name
+$group = "rg-aks-firewall-dnat"             # Resource group name
 $location = "eastus2"                       # Azure region
 $registry = "binarydad"                     # Your ACR name (must exist)
 $clusterName = "firewallcluster"            # AKS cluster name
@@ -59,10 +59,14 @@ cd aks
 ```
 
 The script will output the required values at the end:
+
 - `AZURE_SUBSCRIPTION_ID`
 - `AZURE_RESOURCE_GROUP`
 - `AZURE_FIREWALL_NAME`
 - `Operator Client ID`
+- `Firewall Public IP`
+
+You'll use these values in step 3 to configure the operator deployment.
 
 ### 2. Build and Push the Operator Image
 
@@ -86,18 +90,18 @@ cd operator
 Update `aks/operator.yaml` with the values from step 1:
 
 ```yaml
-# Update the service account annotation with the Client ID from step 1
+# Update the service account annotation with the operator Client ID from step 1
 annotations:
-  azure.workload.identity/client-id: "<client-id-from-setup-output>"
+  azure.workload.identity/client-id: "<operator-client-id-from-setup-output>"
 
 # Update the environment variables
 env:
 - name: AZURE_SUBSCRIPTION_ID
-  value: "<subscription-id-from-setup-output>"
+  value: "<AZURE_SUBSCRIPTION_ID-from-setup-output>"
 - name: AZURE_RESOURCE_GROUP
-  value: "<resource-group-from-setup-output>"
+  value: "<AZURE_RESOURCE_GROUP-from-setup-output>"
 - name: AZURE_FIREWALL_NAME
-  value: "<firewall-name-from-setup-output>"
+  value: "<AZURE_FIREWALL_NAME-from-setup-output>"
 
 # Update the container image
 image: <your-registry>.azurecr.io/firewallsync:latest
@@ -125,7 +129,7 @@ kubectl logs -n firewall-sync deployment/firewall-operator -f
 
 ### 4. Deploy a Sample Workload
 
-First, get your Azure Firewall's public IP address:
+The setup script already outputs your Azure Firewall's public IP address. If you need to retrieve it again:
 
 ```powershell
 az network public-ip show `
@@ -260,9 +264,6 @@ The operator is configured via environment variables set in the `operator.yaml` 
 | `AZURE_FIREWALL_NAME` | Name of the Azure Firewall | `firewall` |
 
 These values are output by the `setup.ps1` script.
-
-## Monitoring
-
 
 ## Monitoring
 
