@@ -45,7 +45,7 @@ Edit the variables at the top of `aks/setup.ps1` to match your desired configura
 ```powershell
 $group = "rg-aks-firewall-dnat"             # Resource group name
 $location = "eastus2"                       # Azure region
-$registry = "binarydad"                     # Your ACR name (must exist)
+$registry = "yourregistry"                  # Your ACR name (must exist)
 $clusterName = "firewallcluster"            # AKS cluster name
 $fwName = "firewall"                        # Azure Firewall name
 $fwIdentity = "fwoperator"                  # Managed identity name
