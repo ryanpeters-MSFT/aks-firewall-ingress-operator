@@ -329,7 +329,7 @@ kubectl logs -n firewall-sync deployment/firewall-operator | Select-String ERROR
    ```powershell
    kubectl get svc <service-name> -o yaml | Select-String azure.firewall
    ```
-4. **Check Azure Firewall permissions** - ensure the managed identity has Contributor role (assigned by setup.ps1)
+4. **Check Azure Firewall permissions** - ensure the managed identity has Network Contributor role on the firewall and Reader role on the resource group (assigned by setup.ps1)
 
 ### Workload Identity issues
 
@@ -360,7 +360,9 @@ kubectl logs -n firewall-sync deployment/firewall-operator | Select-String ERROR
 
 - The operator uses Azure Workload Identity for secure authentication (no secrets required)
 - The operator only needs read access to Kubernetes services
-- The managed identity has Contributor permissions on the resource group (configured by setup.ps1)
+- The managed identity has minimal Azure permissions (configured by setup.ps1):
+  - **Network Contributor** role on the Azure Firewall (to manage DNAT rules)
+  - **Reader** role on the resource group (to read firewall configuration)
 - Consider using namespace-scoped operators for multi-tenant scenarios
 - DNAT rules allow traffic from any source (`*`) by default - modify the code for IP restrictions
 
