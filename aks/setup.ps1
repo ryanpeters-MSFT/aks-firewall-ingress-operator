@@ -38,12 +38,6 @@ $subnetId = az network vnet subnet show -g $group --vnet-name $vnetName -n $aksS
 # create a managed identity for fedarated credential
 $principalId = az identity create -g $group -n $fwIdentity -o tsv --query principalId
 
-az role assignment create `
-    --assignee-object-id $principalId `
-    --assignee-principal-type ServicePrincipal `
-    --scope $groupId `
-    --role "Contributor"
-
 # create aks cluster
 az aks create `
     -g $group `
@@ -71,13 +65,27 @@ az identity federated-credential create `
 az network public-ip create -g $group -n $fwPublicIp --sku Standard
 
 # create azure firewall
-az network firewall create -g $group -n $fwName
+$fwId = az network firewall create -g $group -n $fwName -o tsv --query id
 
 # configure firewall ip
 az network firewall ip-config create -g $group -f $fwName -n $fwIpConfig --public-ip-address $fwPublicIp --vnet-name $vnetName
 
 # update firewall
 az network firewall update -g $group -n $fwName
+
+# assign network contributor role to the managed identity on the firewall
+az role assignment create `
+    --assignee-object-id $principalId `
+    --assignee-principal-type ServicePrincipal `
+    --scope $fwId `
+    --role "Network Contributor"
+
+# assign reader role to the managed identity on the resource group
+az role assignment create `
+    --assignee-object-id $principalId `
+    --assignee-principal-type ServicePrincipal `
+    --scope $groupId `
+    --role "Reader"
 
 # get credentials for aks cluster
 az aks get-credentials -g $group -n $clusterName --overwrite-existing
