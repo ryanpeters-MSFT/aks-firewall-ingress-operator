@@ -139,18 +139,22 @@ az network public-ip show `
   --output tsv
 ```
 
-Update `aks/workload.yaml` with your firewall's public IP:
+Two sample workloads are provided for testing:
+
+#### Option A: Nginx on Port 80
+
+Update `aks/workload-nginx.yaml` with your firewall's public IP:
 
 ```yaml
 annotations:
   service.beta.kubernetes.io/azure-load-balancer-internal: "true"
-  azure.firewall/public-ip: "<firewall-public-ip-from-above-command>"
+  azure.firewall/public-ip: "<firewall-public-ip>"
 ```
 
-Deploy the sample nginx workload:
+Deploy the nginx workload:
 
 ```powershell
-kubectl apply -f aks/workload.yaml
+kubectl apply -f aks/workload-nginx.yaml
 ```
 
 Wait for the LoadBalancer service to receive an internal IP:
@@ -166,6 +170,36 @@ curl http://<firewall-public-ip>
 ```
 
 You should see the nginx welcome page!
+
+#### Option B: Echo Server on Port 8080
+
+Update `aks/workload-echo.yaml` with your firewall's public IP:
+
+```yaml
+annotations:
+  service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+  azure.firewall/public-ip: "<firewall-public-ip>"
+```
+
+Deploy the echo workload:
+
+```powershell
+kubectl apply -f aks/workload-echo.yaml
+```
+
+Wait for the LoadBalancer service to receive an internal IP:
+
+```powershell
+kubectl get svc echo -w
+```
+
+Once the service has an `EXTERNAL-IP`, the operator will automatically create DNAT rules. Test access:
+
+```powershell
+curl http://<firewall-public-ip>:8080
+```
+
+You should see a JSON response with request details from the echo server!
 
 ## Usage
 
@@ -207,23 +241,26 @@ az network public-ip show `
   --output tsv
 ```
 
-### Example: Nginx Service
+### Example Workloads
 
-See `aks/workload.yaml` for a complete example:
+Two complete examples are provided:
 
+**Nginx on Port 80** (`aks/workload-nginx.yaml`):
 ```powershell
-kubectl apply -f aks/workload.yaml
-```
-
-This creates:
-1. An nginx deployment
-2. An internal LoadBalancer service with the firewall annotation
-3. The operator automatically creates DNAT rules on the firewall
-
-Once deployed, you can access the service via:
-```powershell
+kubectl apply -f aks/workload-nginx.yaml
 curl http://<azure-firewall-public-ip>
 ```
+
+**Echo Server on Port 8080** (`aks/workload-echo.yaml`):
+```powershell
+kubectl apply -f aks/workload-echo.yaml
+curl http://<azure-firewall-public-ip>:8080
+```
+
+Each workload creates:
+1. A deployment with the application
+2. An internal LoadBalancer service with the firewall annotation
+3. The operator automatically creates DNAT rules on the firewall
 
 ### Removing Firewall Exposure
 
