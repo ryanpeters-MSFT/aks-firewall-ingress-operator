@@ -27,7 +27,7 @@ metadata:
   namespace: default
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-internal: "true"
-    azure.firewall/public-ip: "40.70.12.174"  # Replace with your Azure Firewall public IP
+    azure.firewall/public-ip: "<your-firewall-public-ip>"  # Replace with your Azure Firewall public IP
 spec:
   ports:
   - port: 80

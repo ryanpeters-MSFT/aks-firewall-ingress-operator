@@ -7,7 +7,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
-    azure.workload.identity/client-id: "b8ebfd99-7aba-41cc-9bc7-a836bcb4161f" # Replace with your managed identity client ID
+    azure.workload.identity/client-id: "<your-managed-identity-client-id>" # Replace with your managed identity client ID
   name: firewall-operator
   namespace: firewall-sync
 ---
@@ -55,9 +55,9 @@ spec:
         image: binarydad.azurecr.io/firewallsync:latest
         env:
         - name: AZURE_SUBSCRIPTION_ID
-          value: "24ef1668-95f3-4c77-adf2-2d023271a3e1"
+          value: "<your-subscription-id>"
         - name: AZURE_RESOURCE_GROUP
-          value: "rg-aks-firewall-dnat"
+          value: "<your-resource-group>"
         - name: AZURE_FIREWALL_NAME
-          value: "firewall"
+          value: "<your-firewall-name>"
         resources: {}
