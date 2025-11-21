@@ -61,7 +61,7 @@ $oidcIssuerUrl = az aks show -n $clusterName -g $group --query "oidcIssuerProfil
 
 # create user assigned managed identity
 az identity federated-credential create `
-    --name "azure-alb-identity" `
+    --name "firewall-sync-identity" `
     --identity-name $fwIdentity `
     -g $group `
     --issuer $oidcIssuerUrl `
